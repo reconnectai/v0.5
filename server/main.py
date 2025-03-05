@@ -5,16 +5,17 @@ from typing import Optional
 app = FastAPI(title="Reconnect.ai API", version="0.5")
 
 # Static API key (v0.5 hack—move to PG/env later)
-VALID_API_KEY = "reconnect-secret-2025"  # Swap this in prod!
+VALID_API_KEY = "reconnect-secret-2025"
 
 # Mock DBs (PG later)
 personae_db = {}
 members_db = {}
+artifacts_db = {}
 
 # Persona Models
 class PersonaCreate(BaseModel):
     name: str
-    artifact_text: str
+    artifact_text: str  # Temp—v0.5 text-only
 
 class PersonaUpdate(BaseModel):
     name: Optional[str] = None
@@ -23,12 +24,20 @@ class PersonaUpdate(BaseModel):
 # Member Models
 class MemberCreate(BaseModel):
     email: str
-    role: str  # e.g., "subscriber", "premium"
-    subscription_status: str  # e.g., "active", "inactive"
+    role: str
+    subscription_status: str
 
 class MemberUpdate(BaseModel):
     role: Optional[str] = None
     subscription_status: Optional[str] = None
+
+# Artifact Models
+class ArtifactCreate(BaseModel):
+    persona_id: int
+    content: str  # v0.5: text-only (ASCII, Word, PDF extracts)
+
+class ArtifactUpdate(BaseModel):
+    content: Optional[str] = None
 
 # API Key Check
 def verify_api_key(x_api_key: str = Header(...)):
@@ -42,7 +51,10 @@ async def create_persona(persona: PersonaCreate, member_id: int = Header(...), a
     verify_api_key(api_key)
     persona_id = len(personae_db) + 1
     personae_db[persona_id] = {"member_id": member_id, **persona.dict()}
-    return {"persona_id": persona_id}
+    # Auto-create first Artifact
+    artifact_id = len(artifacts_db) + 1
+    artifacts_db[artifact_id] = {"persona_id": persona_id, "content": persona.artifact_text}
+    return {"persona_id": persona_id, "artifact_id": artifact_id}
 
 @app.get("/persona/{persona_id}")
 async def read_persona(persona_id: int, api_key: str = Header(...)):
@@ -64,6 +76,10 @@ async def delete_persona(persona_id: int, api_key: str = Header(...)):
     verify_api_key(api_key)
     if persona_id not in personae_db:
         raise HTTPException(status_code=404, detail="Persona not found")
+    # Cascade delete artifacts (v0.5 hack—PG will handle FKs)
+    for aid, artifact in list(artifacts_db.items()):
+        if artifact["persona_id"] == persona_id:
+            del artifacts_db[aid]
     del personae_db[persona_id]
     return {"message": f"Persona {persona_id} deleted"}
 
@@ -98,6 +114,51 @@ async def delete_member(member_id: int, api_key: str = Header(...)):
         raise HTTPException(status_code=404, detail="Member not found")
     del members_db[member_id]
     return {"message": f"Member {member_id} deleted"}
+
+# Artifact CRUD
+@app.post("/artifact/create")
+async def create_artifact(artifact: ArtifactCreate, member_id: int = Header(...), api_key: str = Header(...)):
+    verify_api_key(api_key)
+    if artifact.persona_id not in personae_db:
+        raise HTTPException(status_code=404, detail="Persona not found")
+    if personae_db[artifact.persona_id]["member_id"] != member_id:
+        raise HTTPException(status_code=403, detail="Unauthorized for this Persona")
+    artifact_id = len(artifacts_db) + 1
+    artifacts_db[artifact_id] = artifact.dict()
+    return {"artifact_id": artifact_id}
+
+@app.get("/artifact/{artifact_id}")
+async def read_artifact(artifact_id: int, member_id: int = Header(...), api_key: str = Header(...)):
+    verify_api_key(api_key)
+    if artifact_id not in artifacts_db:
+        raise HTTPException(status_code=404, detail="Artifact not found")
+    artifact = artifacts_db[artifact_id]
+    persona = personae_db[artifact["persona_id"]]
+    if persona["member_id"] != member_id:
+        raise HTTPException(status_code=403, detail="Unauthorized for this Artifact")
+    return artifact
+
+@app.put("/artifact/{artifact_id}/update")
+async def update_artifact(artifact_id: int, update: ArtifactUpdate, member_id: int = Header(...), api_key: str = Header(...)):
+    verify_api_key(api_key)
+    if artifact_id not in artifacts_db:
+        raise HTTPException(status_code=404, detail="Artifact not found")
+    artifact = artifacts_db[artifact_id]
+    if personae_db[artifact["persona_id"]]["member_id"] != member_id:
+        raise HTTPException(status_code=403, detail="Unauthorized for this Artifact")
+    artifacts_db[artifact_id].update({k: v for k, v in update.dict().items() if v is not None})
+    return {"message": f"Artifact {artifact_id} updated"}
+
+@app.delete("/artifact/{artifact_id}/delete")
+async def delete_artifact(artifact_id: int, member_id: int = Header(...), api_key: str = Header(...)):
+    verify_api_key(api_key)
+    if artifact_id not in artifacts_db:
+        raise HTTPException(status_code=404, detail="Artifact not found")
+    artifact = artifacts_db[artifact_id]
+    if personae_db[artifact["persona_id"]]["member_id"] != member_id:
+        raise HTTPException(status_code=403, detail="Unauthorized for this Artifact")
+    del artifacts_db[artifact_id]
+    return {"message": f"Artifact {artifact_id} deleted"}
 
 if __name__ == "__main__":
     import uvicorn
