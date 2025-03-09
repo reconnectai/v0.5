@@ -1,7 +1,9 @@
 -- Reconnect.ai v0.5 Schema (Non-RAG)
 -- Members, Personae, Artifacts tables for Postgres
 
-CREATE TABLE members (
+SET search_path TO reconnect_v05;
+
+CREATE TABLE IF NOT EXISTS members (
     id INTEGER PRIMARY KEY,
     email VARCHAR(255) NOT NULL UNIQUE,
     role VARCHAR(50) NOT NULL,
@@ -10,7 +12,7 @@ CREATE TABLE members (
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE TABLE personae (
+CREATE TABLE IF NOT EXISTS personae (
     id SERIAL PRIMARY KEY,
     member_id INTEGER NOT NULL,
     name VARCHAR(100) NOT NULL,
@@ -19,7 +21,7 @@ CREATE TABLE personae (
     FOREIGN KEY (member_id) REFERENCES members(id) ON DELETE CASCADE
 );
 
-CREATE TABLE artifacts (
+CREATE TABLE IF NOT EXISTS artifacts (
     id SERIAL PRIMARY KEY,
     persona_id INTEGER NOT NULL,
     content TEXT,                    -- Extracted text (v0.5), NULL for non-text later
@@ -30,9 +32,9 @@ CREATE TABLE artifacts (
     FOREIGN KEY (persona_id) REFERENCES personae(id) ON DELETE CASCADE
 );
 
-CREATE INDEX idx_members_email ON members(email);
-CREATE INDEX idx_personae_member_id ON personae(member_id);
-CREATE INDEX idx_artifacts_persona_id ON artifacts(persona_id);
+CREATE INDEX  IF NOT EXISTS idx_members_email ON members(email);
+CREATE INDEX  IF NOT EXISTS idx_personae_member_id ON personae(member_id);
+CREATE INDEX  IF NOT EXISTS idx_artifacts_persona_id ON artifacts(persona_id);
 
 -- Sample Data
 INSERT INTO members (id, email, role, subscription_status)
