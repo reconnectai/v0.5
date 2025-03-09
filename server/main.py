@@ -1,7 +1,7 @@
 from fastapi import FastAPI, HTTPException, Header
 from pydantic import BaseModel
 from typing import Optional
-from server.db import (create_member, read_member, update_member, delete_member,
+from db import (create_member, read_member, update_member, delete_member,
                       create_persona, read_persona, update_persona, delete_persona,
                       create_artifact, read_artifact, update_artifact, delete_artifact)
 
@@ -35,14 +35,14 @@ class ArtifactUpdate(BaseModel):
     content: Optional[str] = None
 
 # API Key Check
-def verify_api_key(x_api_key: str = Header(...)):
+def verify_api_key(x_api_key: str = Header(..., alias="x-api-key")):
     if x_api_key != VALID_API_KEY:
         raise HTTPException(status_code=401, detail="Invalid API key")
     return x_api_key
 
 # Persona CRUD
 @app.post("/persona/create")
-async def create_persona_endpoint(persona: PersonaCreate, member_id: int = Header(...), api_key: str = Header(...)):
+async def create_persona_endpoint(persona: PersonaCreate, member_id: int = Header(...), api_key: str = Header(..., alias="x-api-key")):
     verify_api_key(api_key)
     try:
         persona_id = create_persona(persona.dict(), member_id)
@@ -51,7 +51,7 @@ async def create_persona_endpoint(persona: PersonaCreate, member_id: int = Heade
         raise HTTPException(status_code=400, detail=str(e))
 
 @app.get("/persona/{persona_id}")
-async def read_persona_endpoint(persona_id: int, api_key: str = Header(...)):
+async def read_persona_endpoint(persona_id: int, api_key: str = Header(..., alias="x-api-key")):
     verify_api_key(api_key)
     persona = read_persona(persona_id)
     if not persona:
@@ -59,14 +59,14 @@ async def read_persona_endpoint(persona_id: int, api_key: str = Header(...)):
     return persona
 
 @app.put("/persona/{persona_id}/update")
-async def update_persona_endpoint(persona_id: int, update: PersonaUpdate, api_key: str = Header(...)):
+async def update_persona_endpoint(persona_id: int, update: PersonaUpdate, api_key: str = Header(..., alias="x-api-key")):
     verify_api_key(api_key)
     if not update_persona(persona_id, update.dict(exclude_unset=True)):
         raise HTTPException(status_code=404, detail="Persona not found")
     return {"message": f"Persona {persona_id} updated"}
 
 @app.delete("/persona/{persona_id}/delete")
-async def delete_persona_endpoint(persona_id: int, api_key: str = Header(...)):
+async def delete_persona_endpoint(persona_id: int, api_key: str = Header(..., alias="x-api-key")):
     verify_api_key(api_key)
     if not delete_persona(persona_id):
         raise HTTPException(status_code=404, detail="Persona not found")
@@ -74,14 +74,14 @@ async def delete_persona_endpoint(persona_id: int, api_key: str = Header(...)):
 
 # Member CRUD
 @app.post("/users/create")
-async def create_member_endpoint(member: MemberCreate, member_id: int = Header(...), api_key: str = Header(...)):
+async def create_member_endpoint(member: MemberCreate, member_id: int = Header(...), api_key: str = Header(..., alias="x-api-key")):
     verify_api_key(api_key)
     if not create_member(member.dict(), member_id):
         raise HTTPException(status_code=400, detail="Member already exists")
     return {"message": f"Member {member_id} created"}
 
 @app.get("/users/{member_id}")
-async def read_member_endpoint(member_id: int, api_key: str = Header(...)):
+async def read_member_endpoint(member_id: int, api_key: str = Header(..., alias="x-api-key")):
     verify_api_key(api_key)
     member = read_member(member_id)
     if not member:
@@ -89,14 +89,14 @@ async def read_member_endpoint(member_id: int, api_key: str = Header(...)):
     return member
 
 @app.put("/users/{member_id}/update")
-async def update_member_endpoint(member_id: int, update: MemberUpdate, api_key: str = Header(...)):
+async def update_member_endpoint(member_id: int, update: MemberUpdate, api_key: str = Header(..., alias="x-api-key")):
     verify_api_key(api_key)
     if not update_member(member_id, update.dict(exclude_unset=True)):
         raise HTTPException(status_code=404, detail="Member not found")
     return {"message": f"Member {member_id} updated"}
 
 @app.delete("/users/{member_id}/delete")
-async def delete_member_endpoint(member_id: int, api_key: str = Header(...)):
+async def delete_member_endpoint(member_id: int, api_key: str = Header(..., alias="x-api-key")):
     verify_api_key(api_key)
     if not delete_member(member_id):
         raise HTTPException(status_code=404, detail="Member not found")
@@ -104,7 +104,7 @@ async def delete_member_endpoint(member_id: int, api_key: str = Header(...)):
 
 # Artifact CRUD
 @app.post("/artifact/create")
-async def create_artifact_endpoint(artifact: ArtifactCreate, member_id: int = Header(...), api_key: str = Header(...)):
+async def create_artifact_endpoint(artifact: ArtifactCreate, member_id: int = Header(...), api_key: str = Header(..., alias="x-api-key")):
     verify_api_key(api_key)
     try:
         artifact_id = create_artifact(artifact.dict(), member_id)
@@ -115,7 +115,7 @@ async def create_artifact_endpoint(artifact: ArtifactCreate, member_id: int = He
         raise HTTPException(status_code=400, detail=str(e))
 
 @app.get("/artifact/{artifact_id}")
-async def read_artifact_endpoint(artifact_id: int, member_id: int = Header(...), api_key: str = Header(...)):
+async def read_artifact_endpoint(artifact_id: int, member_id: int = Header(...), api_key: str = Header(..., alias="x-api-key")):
     verify_api_key(api_key)
     artifact = read_artifact(artifact_id, member_id)
     if not artifact:
@@ -123,7 +123,7 @@ async def read_artifact_endpoint(artifact_id: int, member_id: int = Header(...),
     return artifact
 
 @app.put("/artifact/{artifact_id}/update")
-async def update_artifact_endpoint(artifact_id: int, update: ArtifactUpdate, member_id: int = Header(...), api_key: str = Header(...)):
+async def update_artifact_endpoint(artifact_id: int, update: ArtifactUpdate, member_id: int = Header(...), api_key: str = Header(..., alias="x-api-key")):
     verify_api_key(api_key)
     try:
         if not update_artifact(artifact_id, update.dict(exclude_unset=True), member_id):
@@ -133,7 +133,7 @@ async def update_artifact_endpoint(artifact_id: int, update: ArtifactUpdate, mem
         raise HTTPException(status_code=403, detail=str(e))
 
 @app.delete("/artifact/{artifact_id}/delete")
-async def delete_artifact_endpoint(artifact_id: int, member_id: int = Header(...), api_key: str = Header(...)):
+async def delete_artifact_endpoint(artifact_id: int, member_id: int = Header(...), api_key: str = Header(..., alias="x-api-key")):
     verify_api_key(api_key)
     try:
         if not delete_artifact(artifact_id, member_id):
